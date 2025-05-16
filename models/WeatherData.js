@@ -1,16 +1,17 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const WeatherDataSchema = new mongoose.Schema({
   nazwaUzytkownika: String,
   gmina: String,
-  miejscowość: String,
+  miejscowosc: String,
   dataDodania: { type: Date, default: Date.now },
   temperatura: Number,
-  wilgotność: Number,
-  ciśnienieAtmosferyczne: Number,
+  wilgotnosc: Number,
+  cisnienieAtmosferyczne: Number,
   czyPada: Boolean,
-  siłaWiatru: Number,
-  siłaOpadów: Number
+  silaWiatru: Number,
+  silaOpadow: Number
 });
 
-module.exports = mongoose.model('WeatherData', WeatherDataSchema);
+const WeatherData = mongoose.model('WeatherData', WeatherDataSchema);
+export default WeatherData;

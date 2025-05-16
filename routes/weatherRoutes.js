@@ -1,77 +1,64 @@
-const express = require('express');
-const router = express.Router();
-const WeatherData = require('../models/WeatherData');
+import express from 'express';
+import WeatherData from '../models/WeatherData.js';
 
-router.post('/add', async (req, res) => {
+const router = express.Router();
+
+// Dodanie nowego wpisu
+router.post('/', async (req, res) => {
   try {
-    const entry = new WeatherData(req.body);
-    await entry.save();
-    res.status(201).json({ message: 'Dane zapisane' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    const data = new WeatherData(req.body);
+    await data.save();
+    res.status(201).json(data);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 
+// Lista wpisów użytkowników (filtrowanie po gminie i miejscowości)
 router.get('/entries', async (req, res) => {
-  const { gmina, miejscowość } = req.query;
-  let filter = {};
-  if (gmina) filter.gmina = gmina;
-  if (miejscowość) filter.miejscowość = miejscowość;
-
   try {
+    const { gmina, miejscowość } = req.query;
+    const filter = {};
+    if (gmina) filter.gmina = gmina;
+    if (miejscowosc) filter.miejscowosc = miejscowosc;
+
     const entries = await WeatherData.find(filter).sort({ dataDodania: -1 });
     res.json(entries);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
-router.get('/entry/:id', async (req, res) => {
-  try {
-    const entry = await WeatherData.findById(req.params.id);
-    res.json(entry);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
+// Średnie ogólne lub z ostatniej godziny
 router.get('/average', async (req, res) => {
-  const { gmina, miejscowość, lastHour } = req.query;
-  let filter = {};
-  if (gmina) filter.gmina = gmina;
-  if (miejscowość) filter.miejscowość = miejscowość;
-  if (lastHour === 'true') {
-    filter.dataDodania = { $gte: new Date(Date.now() - 3600000) };
-  }
-
   try {
+    const { gmina, miejscowosc, ostatniaGodzina } = req.query;
+    const filter = {};
+    if (gmina) filter.gmina = gmina;
+    if (miejscowość) filter.miejscowosc = miejscowosc;
+    if (ostatniaGodzina === 'true') {
+      const godzinaTemu = new Date(Date.now() - 60 * 60 * 1000);
+      filter.dataDodania = { $gte: godzinaTemu };
+    }
+
     const result = await WeatherData.aggregate([
       { $match: filter },
       {
         $group: {
           _id: null,
           avgTemp: { $avg: "$temperatura" },
-          avgHumidity: { $avg: "$wilgotność" },
-          avgPressure: { $avg: "$ciśnienieAtmosferyczne" },
-          avgWind: { $avg: "$siłaWiatru" },
-          avgRain: { $avg: "$siłaOpadów" },
-          rainCount: { $sum: { $cond: [ "$czyPada", 1, 0 ] } }
+          avgWilg: { $avg: "$wilgotnosc" },
+          avgCisn: { $avg: "$cisnienieAtmosferyczne" },
+          avgWiatr: { $avg: "$silaWiatru" },
+          avgOpad: { $avg: "$silaOpadow" }
         }
       }
     ]);
+
     res.json(result[0] || {});
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
-router.get('/mapData', async (req, res) => {
-  try {
-    const entries = await WeatherData.find({}, 'gmina miejscowość dataDodania temperatura wilgotność ciśnienieAtmosferyczne czyPada siłaWiatru siłaOpadów');
-    res.json(entries);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-module.exports = router;
+export default router;
