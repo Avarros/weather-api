@@ -119,6 +119,44 @@ router.get('/average', async (req, res) => {
             }
           }
         }
+      },
+      {
+        $addFields: {
+          opisWiatr: {
+            $switch: {
+              branches: [
+                { case: { $lte: ["$avgWiatr", 19] }, then: "Brak wiatru" },
+                { case: { $lte: ["$avgWiatr", 39] }, then: "Słaby" },
+                { case: { $lte: ["$avgWiatr", 59] }, then: "Umiarkowany" },
+                { case: { $lte: ["$avgWiatr", 79] }, then: "Silny" },
+                { case: { $lte: ["$avgWiatr", 100] }, then: "Bardzo silny" }
+              ],
+              default: "-"
+            }
+          },
+          opisOpad: {
+            $switch: {
+              branches: [
+                { case: { $lte: ["$avgOpad", 19] }, then: "Brak opadów" },
+                { case: { $lte: ["$avgOpad", 39] }, then: "Słabe" },
+                { case: { $lte: ["$avgOpad", 59] }, then: "Umiarkowane" },
+                { case: { $lte: ["$avgOpad", 79] }, then: "Silne" },
+                { case: { $lte: ["$avgOpad", 100] }, then: "Ulewa" }
+              ],
+              default: "-"
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          avgTemp: 1,
+          avgWilg: 1,
+          avgCisn: 1,
+          czyPada: 1,
+          opisWiatr: 1,
+          opisOpad: 1
+        }
       }
     ]);
 
