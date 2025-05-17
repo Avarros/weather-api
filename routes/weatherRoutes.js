@@ -20,8 +20,13 @@ router.get('/entries', async (req, res) => {
   try {
     const { gmina, miejscowosc } = req.query;
     const filter = {};
-    if (gmina) filter.gmina = gmina;
-    if (miejscowosc) filter.miejscowosc = miejscowosc;
+
+    if (gmina) {
+      filter.gmina = { $regex: new RegExp(`^${gmina}$`, 'i') };
+    }
+    if (miejscowosc) {
+      filter.miejscowosc = { $regex: new RegExp(`^${miejscowosc}$`, 'i') };
+    }
 
     const entries = await WeatherData.find(filter).sort({ dataDodania: -1 });
     res.json(entries);
