@@ -36,7 +36,7 @@ router.get('/average', async (req, res) => {
     const { gmina, miejscowosc, ostatniaGodzina } = req.query;
     const filter = {};
     if (gmina) filter.gmina = gmina;
-    if (miejscowość) filter.miejscowosc = miejscowosc;
+    if (miejscowosc) filter.miejscowosc = miejscowosc;
     if (ostatniaGodzina === 'true') {
       const godzinaTemu = new Date(Date.now() - 60 * 60 * 1000);
       filter.dataDodania = { $gte: godzinaTemu };
