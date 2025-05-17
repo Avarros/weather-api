@@ -6,7 +6,7 @@ const router = express.Router();
 // Dodanie nowego wpisu
 router.post('/', async (req, res) => {
   try {
-    console.log('REQ.BODY:', req.body);  // <-- tu sprawdź, czy są dane
+    console.log('REQ.BODY:', req.body);
     const data = new WeatherData(req.body);
     await data.save();
     res.status(201).json(data);
@@ -18,7 +18,7 @@ router.post('/', async (req, res) => {
 // Lista wpisów użytkowników (filtrowanie po gminie i miejscowości)
 router.get('/entries', async (req, res) => {
   try {
-    const { gmina, miejscowość } = req.query;
+    const { gmina, miejscowosc } = req.query;
     const filter = {};
     if (gmina) filter.gmina = gmina;
     if (miejscowosc) filter.miejscowosc = miejscowosc;
@@ -45,13 +45,79 @@ router.get('/average', async (req, res) => {
     const result = await WeatherData.aggregate([
       { $match: filter },
       {
-        $group: {
-          _id: null,
-          avgTemp: { $avg: "$temperatura" },
-          avgWilg: { $avg: "$wilgotnosc" },
-          avgCisn: { $avg: "$cisnienieAtmosferyczne" },
-          avgWiatr: { $avg: "$silaWiatru" },
-          avgOpad: { $avg: "$silaOpadow" }
+        $facet: {
+          averages: [
+            {
+              $group: {
+                _id: null,
+                avgTemp: { $avg: "$temperatura" },
+                avgWilg: { $avg: "$wilgotnosc" },
+                avgCisn: { $avg: "$cisnienieAtmosferyczne" },
+                avgWiatr: { $avg: "$silaWiatru" },
+                avgOpad: { $avg: "$silaOpadow" }
+              }
+            }
+          ],
+          padaStats: [
+            {
+              $group: {
+                _id: "$czyPada",
+                count: { $sum: 1 }
+              }
+            }
+          ]
+        }
+      },
+      {
+        $project: {
+          avgTemp: { $arrayElemAt: ["$averages.avgTemp", 0] },
+          avgWilg: { $arrayElemAt: ["$averages.avgWilg", 0] },
+          avgCisn: { $arrayElemAt: ["$averages.avgCisn", 0] },
+          avgWiatr: { $arrayElemAt: ["$averages.avgWiatr", 0] },
+          avgOpad: { $arrayElemAt: ["$averages.avgOpad", 0] },
+          czyPada: {
+            $let: {
+              vars: {
+                trueCount: {
+                  $ifNull: [
+                    {
+                      $first: {
+                        $filter: {
+                          input: "$padaStats",
+                          cond: { $eq: ["$$this._id", true] }
+                        }
+                      }
+                    },
+                    { count: 0 }
+                  ]
+                },
+                falseCount: {
+                  $ifNull: [
+                    {
+                      $first: {
+                        $filter: {
+                          input: "$padaStats",
+                          cond: { $eq: ["$$this._id", false] }
+                        }
+                      }
+                    },
+                    { count: 0 }
+                  ]
+                }
+              },
+              in: {
+                $cond: [
+                  { $gt: ["$$trueCount.count", "$$falseCount.count"] }, "Tak",
+                  {
+                    $cond: [
+                      { $gt: ["$$falseCount.count", "$$trueCount.count"] }, "Nie",
+                      "-"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
         }
       }
     ]);
