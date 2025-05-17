@@ -6,6 +6,7 @@ const router = express.Router();
 // Dodanie nowego wpisu
 router.post('/', async (req, res) => {
   try {
+    console.log('REQ.BODY:', req.body);  // <-- tu sprawdź, czy są dane
     const data = new WeatherData(req.body);
     await data.save();
     res.status(201).json(data);
