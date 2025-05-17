@@ -3,6 +3,18 @@ import WeatherData from '../models/WeatherData.js';
 
 const router = express.Router();
 
+// Funkcja pomocnicza do tworzenia filtra z regex ignorującym wielkość liter
+const buildFilter = (gmina, miejscowosc) => {
+  const filter = {};
+  if (gmina) {
+    filter.gmina = { $regex: new RegExp(`^${gmina}$`, 'i') };
+  }
+  if (miejscowosc) {
+    filter.miejscowosc = { $regex: new RegExp(`^${miejscowosc}$`, 'i') };
+  }
+  return filter;
+};
+
 // Dodanie nowego wpisu
 router.post('/', async (req, res) => {
   try {
@@ -15,18 +27,11 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Lista wpisów użytkowników (filtrowanie po gminie i miejscowości)
+// Lista wpisów użytkowników (filtrowanie po gminie i miejscowości, case-insensitive)
 router.get('/entries', async (req, res) => {
   try {
     const { gmina, miejscowosc } = req.query;
-    const filter = {};
-
-    if (gmina) {
-      filter.gmina = { $regex: new RegExp(`^${gmina}$`, 'i') };
-    }
-    if (miejscowosc) {
-      filter.miejscowosc = { $regex: new RegExp(`^${miejscowosc}$`, 'i') };
-    }
+    const filter = buildFilter(gmina, miejscowosc);
 
     const entries = await WeatherData.find(filter).sort({ dataDodania: -1 });
     res.json(entries);
@@ -35,13 +40,12 @@ router.get('/entries', async (req, res) => {
   }
 });
 
-// Średnie ogólne lub z ostatniej godziny
+// Średnie ogólne lub z ostatniej godziny (filtrowanie case-insensitive)
 router.get('/average', async (req, res) => {
   try {
     const { gmina, miejscowosc, ostatniaGodzina } = req.query;
-    const filter = {};
-    if (gmina) filter.gmina = gmina;
-    if (miejscowosc) filter.miejscowosc = miejscowosc;
+    const filter = buildFilter(gmina, miejscowosc);
+
     if (ostatniaGodzina === 'true') {
       const godzinaTemu = new Date(Date.now() - 60 * 60 * 1000);
       filter.dataDodania = { $gte: godzinaTemu };
