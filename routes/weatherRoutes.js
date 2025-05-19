@@ -7,10 +7,10 @@ const router = express.Router();
 const buildFilter = (gmina, miejscowosc) => {
   const filter = {};
   if (gmina) {
-    filter.gmina = { $regex: new RegExp(`^${gmina}$`, 'i') };
+    filter.gmina = { $regex: new RegExp(^${gmina}$, 'i') };
   }
   if (miejscowosc) {
-    filter.miejscowosc = { $regex: new RegExp(`^${miejscowosc}$`, 'i') };
+    filter.miejscowosc = { $regex: new RegExp(^${miejscowosc}$, 'i') };
   }
   return filter;
 };
@@ -18,128 +18,122 @@ const buildFilter = (gmina, miejscowosc) => {
 // Dodanie nowego wpisu
 router.post('/', async (req, res) => {
   try {
+    console.log('REQ.BODY:', req.body);
     const data = new WeatherData(req.body);
     await data.save();
     res.status(201).json(data);
   } catch (err) {
-    res.status(400).json({ error: 'Błąd podczas zapisu danych', details: err.message });
+    res.status(400).json({ error: err.message });
   }
 });
 
-// Pobierz wszystkie wpisy dla gminy lub miejscowości
-router.get('/gmina/:gmina', async (req, res) => {
+// Lista wpisów użytkowników (filtrowanie po gminie i miejscowości, case-insensitive)
+router.get('/entries', async (req, res) => {
   try {
-    const { gmina } = req.params;
-    const data = await WeatherData.find(buildFilter(gmina, null)).sort({ dataDodania: -1 });
-    res.json(data);
+    const { gmina, miejscowosc } = req.query;
+    const filter = buildFilter(gmina, miejscowosc);
+
+    const entries = await WeatherData.find(filter).sort({ dataDodania: -1 });
+    res.json(entries);
   } catch (err) {
-    res.status(500).json({ error: 'Błąd pobierania danych', details: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-router.get('/miejscowosc/:miejscowosc', async (req, res) => {
+// Średnie ogólne lub z ostatniej godziny (filtrowanie case-insensitive)
+router.get('/average', async (req, res) => {
   try {
-    const { miejscowosc } = req.params;
-    const data = await WeatherData.find(buildFilter(null, miejscowosc)).sort({ dataDodania: -1 });
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: 'Błąd pobierania danych', details: err.message });
-  }
-});
+    const { gmina, miejscowosc, ostatniaGodzina } = req.query;
+    const filter = buildFilter(gmina, miejscowosc);
 
-// Oblicz ogólną średnią dla gminy
-router.get('/ogolnaGmina/:gmina', async (req, res) => {
-  try {
-    const { gmina } = req.params;
-    const filter = buildFilter(gmina, null);
-    const averages = await WeatherData.aggregate([
+    if (ostatniaGodzina === 'true') {
+      const godzinaTemu = new Date(Date.now() - 60 * 60 * 1000);
+      filter.dataDodania = { $gte: godzinaTemu };
+    }
+
+    const result = await WeatherData.aggregate([
       { $match: filter },
       {
-        $group: {
-          _id: null,
-          avgTemp: { $avg: '$temperatura' },
-          avgWilgotnosc: { $avg: '$wilgotnosc' },
-          avgCisnienie: { $avg: '$cisnienieAtmosferyczne' }
+        $facet: {
+          averages: [
+            {
+              $group: {
+                _id: null,
+                avgTemp: { $avg: "$temperatura" },
+                avgWilg: { $avg: "$wilgotnosc" },
+                avgCisn: { $avg: "$cisnienieAtmosferyczne" },
+                avgWiatr: { $avg: "$silaWiatru" },
+                avgOpad: { $avg: "$silaOpadow" }
+              }
+            }
+          ],
+          padaStats: [
+            {
+              $group: {
+                _id: "$czyPada",
+                count: { $sum: 1 }
+              }
+            }
+          ]
+        }
+      },
+      {
+        $project: {
+          avgTemp: { $arrayElemAt: ["$averages.avgTemp", 0] },
+          avgWilg: { $arrayElemAt: ["$averages.avgWilg", 0] },
+          avgCisn: { $arrayElemAt: ["$averages.avgCisn", 0] },
+          avgWiatr: { $arrayElemAt: ["$averages.avgWiatr", 0] },
+          avgOpad: { $arrayElemAt: ["$averages.avgOpad", 0] },
+          czyPada: {
+            $let: {
+              vars: {
+                trueCount: {
+                  $ifNull: [
+                    {
+                      $first: {
+                        $filter: {
+                          input: "$padaStats",
+                          cond: { $eq: ["$$this._id", true] }
+                        }
+                      }
+                    },
+                    { count: 0 }
+                  ]
+                },
+                falseCount: {
+                  $ifNull: [
+                    {
+                      $first: {
+                        $filter: {
+                          input: "$padaStats",
+                          cond: { $eq: ["$$this._id", false] }
+                        }
+                      }
+                    },
+                    { count: 0 }
+                  ]
+                }
+              },
+              in: {
+                $cond: [
+                  { $gt: ["$$trueCount.count", "$$falseCount.count"] }, "Tak",
+                  {
+                    $cond: [
+                      { $gt: ["$$falseCount.count", "$$trueCount.count"] }, "Nie",
+                      "-"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
         }
       }
     ]);
-    res.json(averages[0] || {});
-  } catch (err) {
-    res.status(500).json({ error: 'Błąd obliczania średnich', details: err.message });
-  }
-});
 
-// Oblicz ogólną średnią dla miejscowości
-router.get('/ogolnaMiejscowosc/:miejscowosc', async (req, res) => {
-  try {
-    const { miejscowosc } = req.params;
-    const filter = buildFilter(null, miejscowosc);
-    const averages = await WeatherData.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: null,
-          avgTemp: { $avg: '$temperatura' },
-          avgWilgotnosc: { $avg: '$wilgotnosc' },
-          avgCisnienie: { $avg: '$cisnienieAtmosferyczne' }
-        }
-      }
-    ]);
-    res.json(averages[0] || {});
+    res.json(result[0] || {});
   } catch (err) {
-    res.status(500).json({ error: 'Błąd obliczania średnich', details: err.message });
-  }
-});
-
-// Średnia z ostatniej godziny dla gminy
-router.get('/ostatniaGodzinaGmina/:gmina', async (req, res) => {
-  try {
-    const { gmina } = req.params;
-    const godzinaTemu = new Date(Date.now() - 60 * 60 * 1000);
-    const filter = {
-      ...buildFilter(gmina, null),
-      dataDodania: { $gte: godzinaTemu }
-    };
-    const averages = await WeatherData.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: null,
-          avgTemp: { $avg: '$temperatura' },
-          avgWilgotnosc: { $avg: '$wilgotnosc' },
-          avgCisnienie: { $avg: '$cisnienieAtmosferyczne' }
-        }
-      }
-    ]);
-    res.json(averages[0] || {});
-  } catch (err) {
-    res.status(500).json({ error: 'Błąd obliczania średnich', details: err.message });
-  }
-});
-
-// Średnia z ostatniej godziny dla miejscowości
-router.get('/ostatniaGodzinaMiejscowosc/:miejscowosc', async (req, res) => {
-  try {
-    const { miejscowosc } = req.params;
-    const godzinaTemu = new Date(Date.now() - 60 * 60 * 1000);
-    const filter = {
-      ...buildFilter(null, miejscowosc),
-      dataDodania: { $gte: godzinaTemu }
-    };
-    const averages = await WeatherData.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: null,
-          avgTemp: { $avg: '$temperatura' },
-          avgWilgotnosc: { $avg: '$wilgotnosc' },
-          avgCisnienie: { $avg: '$cisnienieAtmosferyczne' }
-        }
-      }
-    ]);
-    res.json(averages[0] || {});
-  } catch (err) {
-    res.status(500).json({ error: 'Błąd obliczania średnich', details: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
