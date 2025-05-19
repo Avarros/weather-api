@@ -40,6 +40,32 @@ router.get('/entries', async (req, res) => {
   }
 });
 
+// Pobieranie danych tylko na podstawie gminy
+router.get('/gmina/:gmina', async (req, res) => {
+  try {
+    const { gmina } = req.params;
+    const entries = await WeatherData.find({
+      gmina: { $regex: new RegExp(`^${gmina}$`, 'i') }
+    }).sort({ dataDodania: -1 });
+    res.json(entries);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Pobranie wpisów dla konkretnej miejscowości (case-insensitive)
+router.get('/miejscowosc/:miejscowosc', async (req, res) => {
+  const { miejscowosc } = req.params;
+
+  try {
+    const regex = new RegExp(`^${miejscowosc}$`, 'i');
+    const entries = await WeatherData.find({ miejscowosc: { $regex: regex } }).sort({ dataDodania: -1 });
+    res.json(entries);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Średnie ogólne lub z ostatniej godziny (filtrowanie case-insensitive)
 router.get('/average', async (req, res) => {
   try {
