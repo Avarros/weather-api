@@ -1,5 +1,6 @@
 import express from 'express';
 import WeatherData from '../models/WeatherData.js';
+import axios from 'axios';
 
 const router = express.Router();
 
@@ -61,6 +62,99 @@ router.get('/miejscowosc/:miejscowosc', async (req, res) => {
     const regex = new RegExp(`^${miejscowosc}$`, 'i');
     const entries = await WeatherData.find({ miejscowosc: { $regex: regex } }).sort({ dataDodania: -1 });
     res.json(entries);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// 🔑 Klucz API do Google Geocoding
+const GEOCODING_API_KEY = 'AIzaSyCF3odqgnIR29w-dJrbAJbs4GqM4JjAFyo';
+
+// 📌 Pomocnicza funkcja do geokodowania
+async function geocodeAddress(miejscowosc, gmina) {
+  const address = `${miejscowosc}, ${gmina}, Polska`;
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GEOCODING_API_KEY}`;
+
+  try {
+    const res = await axios.get(url);
+    const location = res.data.results[0]?.geometry.location;
+    return location || null;
+  } catch (err) {
+    console.error("Błąd geokodowania:", err.message);
+    return null;
+  }
+}
+
+// 🗺️ Endpoint 1: Punkty na mapę po gminie
+router.get('/mapa/poGminie/:gmina', async (req, res) => {
+  try {
+    const { gmina } = req.params;
+    const godzinaTemu = new Date(Date.now() - 6 * 60 * 60 * 1000); // ostatnie 6h
+
+    const entries = await WeatherData.find({
+      gmina: { $regex: new RegExp(`^${gmina}$`, 'i') },
+      dataDodania: { $gte: godzinaTemu }
+    });
+
+    const grouped = {};
+
+    for (const entry of entries) {
+      const key = `${entry.miejscowosc.toLowerCase()}|${entry.gmina.toLowerCase()}`;
+      if (!grouped[key]) {
+        grouped[key] = {
+          miejscowosc: entry.miejscowosc,
+          gmina: entry.gmina,
+          entries: []
+        };
+      }
+      grouped[key].entries.push(entry);
+    }
+
+    const result = [];
+
+    for (const key in grouped) {
+      const { miejscowosc, gmina, entries } = grouped[key];
+      const location = await geocodeAddress(miejscowosc, gmina);
+      if (location) {
+        result.push({
+          miejscowosc,
+          gmina,
+          lat: location.lat,
+          lng: location.lng,
+          liczbaWpisow: entries.length
+        });
+      }
+    }
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 🗺️ Endpoint 2: Punkty na mapę po gminie i miejscowości
+router.get('/mapa/poMiejscowosci/:gmina/:miejscowosc', async (req, res) => {
+  try {
+    const { gmina, miejscowosc } = req.params;
+    const godzinaTemu = new Date(Date.now() - 6 * 60 * 60 * 1000);
+
+    const entries = await WeatherData.find({
+      gmina: { $regex: new RegExp(`^${gmina}$`, 'i') },
+      miejscowosc: { $regex: new RegExp(`^${miejscowosc}$`, 'i') },
+      dataDodania: { $gte: godzinaTemu }
+    });
+
+    const location = await geocodeAddress(miejscowosc, gmina);
+    if (!location) return res.status(404).json({ error: "Nie znaleziono współrzędnych" });
+
+    res.json({
+      miejscowosc,
+      gmina,
+      lat: location.lat,
+      lng: location.lng,
+      liczbaWpisow: entries.length
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
