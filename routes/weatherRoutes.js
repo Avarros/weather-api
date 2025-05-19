@@ -7,10 +7,10 @@ const router = express.Router();
 const buildFilter = (gmina, miejscowosc) => {
   const filter = {};
   if (gmina) {
-    filter.gmina = { $regex: new RegExp(^${gmina}$, 'i') };
+    filter.gmina = { $regex: new RegExp(`^${gmina}$`, 'i') };
   }
   if (miejscowosc) {
-    filter.miejscowosc = { $regex: new RegExp(^${miejscowosc}$, 'i') };
+    filter.miejscowosc = { $regex: new RegExp(`^${miejscowosc}$`, 'i') };
   }
   return filter;
 };
