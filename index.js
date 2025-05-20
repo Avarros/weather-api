@@ -8,6 +8,11 @@ dotenv.config();
 
 const app = express();
 app.use(cors());
+app.use(express.text()); // Tymczasowo do debugowania
+app.use((req, res, next) => {
+  console.log('RAW BODY:', req.body);
+  next();
+});
 app.use(express.json());
 
 mongoose.connect(process.env.MONGO_URI, {
