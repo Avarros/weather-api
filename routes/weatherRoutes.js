@@ -85,71 +85,62 @@ async function geocodeAddress(miejscowosc, gmina) {
 // 🗺️ Endpoint 1: Punkty na mapę po gminie
 router.get('/mapa/poGminie/:gmina', async (req, res) => {
   try {
-    const { gmina } = req.params;
-    const godzinyTemu = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    const gmina = decodeURIComponent(req.params.gmina);
+    const since = new Date(Date.now() - 6 * 60 * 60 * 1000); // ostatnie 6h
+    const entries = await WeatherEntry.find({
+      gmina,
+      dataDodania: { $gte: since }
+    }).lean();
 
-    // Znajdź wszystkie wpisy z danej gminy w ostatnich 6 godzinach
-    const entries = await WeatherData.find({
-      gmina: { $regex: new RegExp(`^${gmina}$`, 'i') },
-      dataDodania: { $gte: godzinyTemu }
-    });
+    if (entries.length === 0) {
+      return res.json([]);
+    }
 
-    if (!entries.length) return res.json([]);
+    const coord = await geocodeLocation(gmina);
+    if (!coord) return res.status(404).json({ error: 'Nie znaleziono współrzędnych dla gminy.' });
 
-    // Geokoduj tylko gminę
-    const location = await geocodeAddress("", gmina); // miejscowość pusta
-    if (!location) return res.status(404).json({ error: "Nie znaleziono współrzędnych gminy" });
+    const randomizedEntries = entries.map(entry => ({
+      ...entry,
+      latitude: coord.lat + (Math.random() - 0.5) * 0.02,
+      longitude: coord.lng + (Math.random() - 0.5) * 0.02
+    }));
 
-    // Rozmieść wpisy losowo wokół punktu
-    const randomized = entries.map(entry => {
-      const offsetLat = (Math.random() - 0.5) * 0.02; // ~do 1km
-      const offsetLng = (Math.random() - 0.5) * 0.02;
-      return {
-        lat: location.lat + offsetLat,
-        lng: location.lng + offsetLng,
-        miejscowosc: entry.miejscowosc,
-        gmina: entry.gmina,
-        silaOpadow: entry.silaOpadow,
-        temperatura: entry.temperatura,
-        wilgotnosc: entry.wilgotnosc,
-        cisnienie: entry.cisnienieAtmosferyczne,
-        dataDodania: entry.dataDodania,
-        czyPada: entry.czyPada,
-        silaWiatru: entry.silaWiatru
-      };
-    });
-
-    res.json(randomized);
+    res.json(randomizedEntries);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    console.error('❌ Błąd w /mapa/poGminie:', err);
+    res.status(500).json({ error: 'Wewnętrzny błąd serwera' });
   }
 });
 
 // 🗺️ Endpoint 2: Punkty na mapę po gminie i miejscowości
 router.get('/mapa/poMiejscowosci/:gmina/:miejscowosc', async (req, res) => {
   try {
-    const { gmina, miejscowosc } = req.params;
-    const godzinaTemu = new Date(Date.now() - 6 * 60 * 60 * 1000);
-
-    const entries = await WeatherData.find({
-      gmina: { $regex: new RegExp(`^${gmina}$`, 'i') },
-      miejscowosc: { $regex: new RegExp(`^${miejscowosc}$`, 'i') },
-      dataDodania: { $gte: godzinaTemu }
-    });
-
-    const location = await geocodeAddress(miejscowosc, gmina);
-    if (!location) return res.status(404).json({ error: "Nie znaleziono współrzędnych" });
-
-    res.json({
-      miejscowosc,
+    const gmina = decodeURIComponent(req.params.gmina);
+    const miejscowosc = decodeURIComponent(req.params.miejscowosc);
+    const since = new Date(Date.now() - 6 * 60 * 60 * 1000); // ostatnie 6h
+    const entries = await WeatherEntry.find({
       gmina,
-      lat: location.lat,
-      lng: location.lng,
-      liczbaWpisow: entries.length
-    });
+      miejscowość: miejscowosc,
+      dataDodania: { $gte: since }
+    }).lean();
+
+    if (entries.length === 0) {
+      return res.json([]);
+    }
+
+    const coord = await geocodeLocation(`${miejscowosc}, ${gmina}`);
+    if (!coord) return res.status(404).json({ error: 'Nie znaleziono współrzędnych dla miejscowości.' });
+
+    const randomizedEntries = entries.map(entry => ({
+      ...entry,
+      latitude: coord.lat + (Math.random() - 0.5) * 0.02,
+      longitude: coord.lng + (Math.random() - 0.5) * 0.02
+    }));
+
+    res.json(randomizedEntries);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('❌ Błąd w /mapa/poMiejscowosci:', err);
+    res.status(500).json({ error: 'Wewnętrzny błąd serwera' });
   }
 });
 
