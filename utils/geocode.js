@@ -25,7 +25,7 @@ export async function geocodeAddress(miejscowosc = '', gmina = '') {
     const location = response.data?.results?.[0]?.geometry?.location;
     return location || null;
   } catch (err) {
-    console.error('Błąd geokodowania:', err.message);
+    console.error('Błąd geokodowania:', err.response?.data || err.message);
     return null;
   }
 }
