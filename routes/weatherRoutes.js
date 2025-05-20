@@ -1,6 +1,7 @@
 import express from 'express';
 import WeatherData from '../models/WeatherData.js';
 import axios from 'axios';
+import { geocodeAddress } from '../utils/geocode.js';
 
 const router = express.Router();
 
@@ -65,23 +66,6 @@ router.get('/miejscowosc/:miejscowosc', async (req, res) => {
   }
 });
 
-// 🔑 Klucz API do Google Geocoding
-const GEOCODING_API_KEY = 'AIzaSyCF3odqgnIR29w-dJrbAJbs4GqM4JjAFyo';
-
-// 📌 Pomocnicza funkcja do geokodowania
-async function geocodeAddress(miejscowosc, gmina) {
-  const address = `${miejscowosc}, ${gmina}, Polska`;
-  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GEOCODING_API_KEY}`;
-  try {
-    const res = await axios.get(url);
-    const location = res.data.results[0]?.geometry.location;
-    return location || null;
-  } catch (err) {
-    console.error("Błąd geokodowania:", err.message);
-    return null;
-  }
-}
-
 // 🗺️ Endpoint 1: Punkty na mapę po gminie
 router.get('/mapa/poGminie/:gmina', async (req, res) => {
   try {
@@ -96,7 +80,7 @@ router.get('/mapa/poGminie/:gmina', async (req, res) => {
       return res.json([]);
     }
 
-    const coord = await geocodeLocation(gmina);
+    const coord = await geocodeAddress('', gmina); // ✅ tylko gmina
     if (!coord) return res.status(404).json({ error: 'Nie znaleziono współrzędnych dla gminy.' });
 
     const randomizedEntries = entries.map(entry => ({
@@ -128,7 +112,7 @@ router.get('/mapa/poMiejscowosci/:gmina/:miejscowosc', async (req, res) => {
       return res.json([]);
     }
 
-    const coord = await geocodeLocation(`${miejscowosc}, ${gmina}`);
+    const coord = await geocodeAddress(miejscowosc, gmina); // ✅ miejscowość i gmina
     if (!coord) return res.status(404).json({ error: 'Nie znaleziono współrzędnych dla miejscowości.' });
 
     const randomizedEntries = entries.map(entry => ({
