@@ -21,14 +21,6 @@ const buildFilter = (gmina, miejscowosc) => {
 router.post('/', async (req, res) => {
   try {
     console.log('REQ.BODY:', req.body);
-
-    const { gmina, miejscowosc } = req.body;
-    const coord = await geocodeAddress(miejscowosc, gmina);
-    if (coord) {
-      req.body.latitude = coord.lat;
-      req.body.longitude = coord.lng;
-    }
-
     const data = new WeatherData(req.body);
     await data.save();
     res.status(201).json(data);
@@ -80,7 +72,7 @@ router.get('/mapa/poGminie/:gmina', async (req, res) => {
     const gmina = decodeURIComponent(req.params.gmina);
     const since = new Date(Date.now() - 6 * 60 * 60 * 1000); // ostatnie 6h
     const entries = await WeatherData.find({
-      gmina: { $regex: new RegExp(`^${gmina}$`, 'i') },
+      gmina: { $regex: new RegExp(^${gmina}$, 'i') },
       dataDodania: { $gte: since }
     }).lean();
 
