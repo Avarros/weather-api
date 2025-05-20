@@ -140,8 +140,8 @@ router.get('/mapa/poMiejscowosci/:gmina/:miejscowosc', async (req, res) => {
     const godzinaTemu = new Date(Date.now() - 6 * 60 * 60 * 1000);
 
     const entries = await WeatherData.find({
-      gmina: { $regex: new RegExp(^${gmina}$, 'i') },
-      miejscowosc: { $regex: new RegExp(^${miejscowosc}$, 'i') },
+      gmina: { $regex: new RegExp('^${gmina}$', 'i') },
+      miejscowosc: { $regex: new RegExp('^${miejscowosc}$', 'i') },
       dataDodania: { $gte: godzinaTemu }
     });
 
