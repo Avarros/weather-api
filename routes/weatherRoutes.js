@@ -4,39 +4,22 @@ import axios from 'axios';
 
 const router = express.Router();
 
-// 🔑 Klucz API do Google Geocoding
-const GEOCODING_API_KEY = 'AIzaSyCF3odqgnIR29w-dJrbAJbs4GqM4JjAFyo';
-
-// 📦 Funkcja do filtrowania wpisów niezależnie od wielkości liter
+// Funkcja pomocnicza do tworzenia filtra z regex ignorującym wielkość liter
 const buildFilter = (gmina, miejscowosc) => {
   const filter = {};
   if (gmina) {
-    filter.gmina = { $regex: new RegExp(`^${gmina}$`, 'i') };
+    filter.gmina = { $regex: new RegExp(^${gmina}$, 'i') };
   }
   if (miejscowosc) {
-    filter.miejscowosc = { $regex: new RegExp(`^${miejscowosc}$`, 'i') };
+    filter.miejscowosc = { $regex: new RegExp(^${miejscowosc}$, 'i') };
   }
   return filter;
 };
 
-// 🌍 Funkcja pomocnicza do geokodowania (Google Maps)
-async function geocodeAddress(miejscowosc, gmina) {
-  const address = `${miejscowosc}, ${gmina}, Polska`;
-  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GEOCODING_API_KEY}`;
-
-  try {
-    const response = await axios.get(url);
-    const location = response.data.results[0]?.geometry.location;
-    return location || null;
-  } catch (err) {
-    console.error("Błąd geokodowania:", err.message);
-    return null;
-  }
-}
-
-// ✅ POST /api/ - dodaj nowy wpis pogodowy
+// Dodanie nowego wpisu
 router.post('/', async (req, res) => {
   try {
+    console.log('REQ.BODY:', req.body);
     const data = new WeatherData(req.body);
     await data.save();
     res.status(201).json(data);
@@ -45,11 +28,12 @@ router.post('/', async (req, res) => {
   }
 });
 
-// ✅ GET /api/entries - zwraca wszystkie wpisy (opcjonalnie filtrowane)
+// Lista wpisów użytkowników (filtrowanie po gminie i miejscowości, case-insensitive)
 router.get('/entries', async (req, res) => {
   try {
     const { gmina, miejscowosc } = req.query;
     const filter = buildFilter(gmina, miejscowosc);
+
     const entries = await WeatherData.find(filter).sort({ dataDodania: -1 });
     res.json(entries);
   } catch (err) {
@@ -57,12 +41,12 @@ router.get('/entries', async (req, res) => {
   }
 });
 
-// ✅ GET /api/gmina/:gmina - wpisy z danej gminy
+// Pobieranie danych tylko na podstawie gminy
 router.get('/gmina/:gmina', async (req, res) => {
   try {
     const { gmina } = req.params;
     const entries = await WeatherData.find({
-      gmina: { $regex: new RegExp(`^${gmina}$`, 'i') }
+      gmina: { $regex: new RegExp(^${gmina}$, 'i') }
     }).sort({ dataDodania: -1 });
     res.json(entries);
   } catch (err) {
@@ -70,34 +54,53 @@ router.get('/gmina/:gmina', async (req, res) => {
   }
 });
 
-// ✅ GET /api/miejscowosc/:miejscowosc - wpisy z miejscowości
+// Pobranie wpisów dla konkretnej miejscowości (case-insensitive)
 router.get('/miejscowosc/:miejscowosc', async (req, res) => {
+  const { miejscowosc } = req.params;
+
   try {
-    const { miejscowosc } = req.params;
-    const entries = await WeatherData.find({
-      miejscowosc: { $regex: new RegExp(`^${miejscowosc}$`, 'i') }
-    }).sort({ dataDodania: -1 });
+    const regex = new RegExp(^${miejscowosc}$, 'i');
+    const entries = await WeatherData.find({ miejscowosc: { $regex: regex } }).sort({ dataDodania: -1 });
     res.json(entries);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ✅ GET /api/mapa/poGminie/:gmina - dane na mapę (grupowane po miejscowościach)
+
+// 🔑 Klucz API do Google Geocoding
+const GEOCODING_API_KEY = 'AIzaSyCF3odqgnIR29w-dJrbAJbs4GqM4JjAFyo';
+
+// 📌 Pomocnicza funkcja do geokodowania
+async function geocodeAddress(miejscowosc, gmina) {
+  const address = ${miejscowosc}, ${gmina}, Polska;
+  const url = https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GEOCODING_API_KEY};
+
+  try {
+    const res = await axios.get(url);
+    const location = res.data.results[0]?.geometry.location;
+    return location || null;
+  } catch (err) {
+    console.error("Błąd geokodowania:", err.message);
+    return null;
+  }
+}
+
+// 🗺️ Endpoint 1: Punkty na mapę po gminie
 router.get('/mapa/poGminie/:gmina', async (req, res) => {
   try {
     const { gmina } = req.params;
     const godzinaTemu = new Date(Date.now() - 6 * 60 * 60 * 1000); // ostatnie 6h
 
     const entries = await WeatherData.find({
-      gmina: { $regex: new RegExp(`^${gmina}$`, 'i') },
+      gmina: { $regex: new RegExp(^${gmina}$, 'i') },
       dataDodania: { $gte: godzinaTemu }
     });
 
     const grouped = {};
 
     for (const entry of entries) {
-      const key = `${entry.miejscowosc.toLowerCase()}|${entry.gmina.toLowerCase()}`;
+      const key = ${entry.miejscowosc.toLowerCase()}|${entry.gmina.toLowerCase()};
       if (!grouped[key]) {
         grouped[key] = {
           miejscowosc: entry.miejscowosc,
@@ -130,15 +133,15 @@ router.get('/mapa/poGminie/:gmina', async (req, res) => {
   }
 });
 
-// ✅ GET /api/mapa/poMiejscowosci/:gmina/:miejscowosc
+// 🗺️ Endpoint 2: Punkty na mapę po gminie i miejscowości
 router.get('/mapa/poMiejscowosci/:gmina/:miejscowosc', async (req, res) => {
   try {
     const { gmina, miejscowosc } = req.params;
     const godzinaTemu = new Date(Date.now() - 6 * 60 * 60 * 1000);
 
     const entries = await WeatherData.find({
-      gmina: { $regex: new RegExp(`^${gmina}$`, 'i') },
-      miejscowosc: { $regex: new RegExp(`^${miejscowosc}$`, 'i') },
+      gmina: { $regex: new RegExp(^${gmina}$, 'i') },
+      miejscowosc: { $regex: new RegExp(^${miejscowosc}$, 'i') },
       dataDodania: { $gte: godzinaTemu }
     });
 
@@ -157,7 +160,7 @@ router.get('/mapa/poMiejscowosci/:gmina/:miejscowosc', async (req, res) => {
   }
 });
 
-// ✅ GET /api/average - średnie (ogólne lub z ostatniej godziny)
+// Średnie ogólne lub z ostatniej godziny (filtrowanie case-insensitive)
 router.get('/average', async (req, res) => {
   try {
     const { gmina, miejscowosc, ostatniaGodzina } = req.query;
