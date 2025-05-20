@@ -21,6 +21,14 @@ const buildFilter = (gmina, miejscowosc) => {
 router.post('/', async (req, res) => {
   try {
     console.log('REQ.BODY:', req.body);
+
+    const { gmina, miejscowosc } = req.body;
+    const coord = await geocodeAddress(miejscowosc, gmina);
+    if (coord) {
+      req.body.latitude = coord.lat;
+      req.body.longitude = coord.lng;
+    }
+
     const data = new WeatherData(req.body);
     await data.save();
     res.status(201).json(data);
