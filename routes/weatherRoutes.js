@@ -4,7 +4,10 @@ import axios from 'axios';
 
 const router = express.Router();
 
-// Funkcja pomocnicza do tworzenia filtra z regex ignorującym wielkość liter
+// 🔑 Klucz API do Google Geocoding
+const GEOCODING_API_KEY = 'AIzaSyCF3odqgnIR29w-dJrbAJbs4GqM4JjAFyo';
+
+// 📦 Funkcja do filtrowania wpisów niezależnie od wielkości liter
 const buildFilter = (gmina, miejscowosc) => {
   const filter = {};
   if (gmina) {
@@ -16,10 +19,24 @@ const buildFilter = (gmina, miejscowosc) => {
   return filter;
 };
 
-// Dodanie nowego wpisu
+// 🌍 Funkcja pomocnicza do geokodowania (Google Maps)
+async function geocodeAddress(miejscowosc, gmina) {
+  const address = `${miejscowosc}, ${gmina}, Polska`;
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GEOCODING_API_KEY}`;
+
+  try {
+    const response = await axios.get(url);
+    const location = response.data.results[0]?.geometry.location;
+    return location || null;
+  } catch (err) {
+    console.error("Błąd geokodowania:", err.message);
+    return null;
+  }
+}
+
+// ✅ POST /api/ - dodaj nowy wpis pogodowy
 router.post('/', async (req, res) => {
   try {
-    console.log('REQ.BODY:', req.body);
     const data = new WeatherData(req.body);
     await data.save();
     res.status(201).json(data);
@@ -28,12 +45,11 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Lista wpisów użytkowników (filtrowanie po gminie i miejscowości, case-insensitive)
+// ✅ GET /api/entries - zwraca wszystkie wpisy (opcjonalnie filtrowane)
 router.get('/entries', async (req, res) => {
   try {
     const { gmina, miejscowosc } = req.query;
     const filter = buildFilter(gmina, miejscowosc);
-
     const entries = await WeatherData.find(filter).sort({ dataDodania: -1 });
     res.json(entries);
   } catch (err) {
@@ -41,7 +57,7 @@ router.get('/entries', async (req, res) => {
   }
 });
 
-// Pobieranie danych tylko na podstawie gminy
+// ✅ GET /api/gmina/:gmina - wpisy z danej gminy
 router.get('/gmina/:gmina', async (req, res) => {
   try {
     const { gmina } = req.params;
@@ -54,39 +70,20 @@ router.get('/gmina/:gmina', async (req, res) => {
   }
 });
 
-// Pobranie wpisów dla konkretnej miejscowości (case-insensitive)
+// ✅ GET /api/miejscowosc/:miejscowosc - wpisy z miejscowości
 router.get('/miejscowosc/:miejscowosc', async (req, res) => {
-  const { miejscowosc } = req.params;
-
   try {
-    const regex = new RegExp(`^${miejscowosc}$`, 'i');
-    const entries = await WeatherData.find({ miejscowosc: { $regex: regex } }).sort({ dataDodania: -1 });
+    const { miejscowosc } = req.params;
+    const entries = await WeatherData.find({
+      miejscowosc: { $regex: new RegExp(`^${miejscowosc}$`, 'i') }
+    }).sort({ dataDodania: -1 });
     res.json(entries);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-
-// 🔑 Klucz API do Google Geocoding
-const GEOCODING_API_KEY = 'AIzaSyCF3odqgnIR29w-dJrbAJbs4GqM4JjAFyo';
-
-// 📌 Pomocnicza funkcja do geokodowania
-async function geocodeAddress(miejscowosc, gmina) {
-  const address = `${miejscowosc}, ${gmina}, Polska`;
-  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GEOCODING_API_KEY}`;
-
-  try {
-    const res = await axios.get(url);
-    const location = res.data.results[0]?.geometry.location;
-    return location || null;
-  } catch (err) {
-    console.error("Błąd geokodowania:", err.message);
-    return null;
-  }
-}
-
-// 🗺️ Endpoint 1: Punkty na mapę po gminie
+// ✅ GET /api/mapa/poGminie/:gmina - dane na mapę (grupowane po miejscowościach)
 router.get('/mapa/poGminie/:gmina', async (req, res) => {
   try {
     const { gmina } = req.params;
@@ -133,7 +130,7 @@ router.get('/mapa/poGminie/:gmina', async (req, res) => {
   }
 });
 
-// 🗺️ Endpoint 2: Punkty na mapę po gminie i miejscowości
+// ✅ GET /api/mapa/poMiejscowosci/:gmina/:miejscowosc
 router.get('/mapa/poMiejscowosci/:gmina/:miejscowosc', async (req, res) => {
   try {
     const { gmina, miejscowosc } = req.params;
@@ -160,7 +157,7 @@ router.get('/mapa/poMiejscowosci/:gmina/:miejscowosc', async (req, res) => {
   }
 });
 
-// Średnie ogólne lub z ostatniej godziny (filtrowanie case-insensitive)
+// ✅ GET /api/average - średnie (ogólne lub z ostatniej godziny)
 router.get('/average', async (req, res) => {
   try {
     const { gmina, miejscowosc, ostatniaGodzina } = req.query;
