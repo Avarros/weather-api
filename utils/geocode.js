@@ -11,7 +11,13 @@ const GEOCODING_API_KEY = 'AIzaSyCF3odqgnIR29w-dJrbAJbs4GqM4JjAFyo'; // Zamień 
 export async function geocodeAddress(miejscowosc = '', gmina = '') {
   if (!miejscowosc && !gmina) return null;
 
-  const address = `${miejscowosc ? miejscowosc + ', ' : ''}${gmina}, Polska`;
+  let address = '';
+  if (miejscowosc) {
+    address = `${miejscowosc}, ${gmina}, Polska`;
+  } else {
+    address = `Gmina ${gmina}, Polska`;
+  }
+
   const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GEOCODING_API_KEY}`;
 
   try {
