@@ -8,10 +8,10 @@ const router = express.Router();
 const buildFilter = (gmina, miejscowosc) => {
   const filter = {};
   if (gmina) {
-    filter.gmina = { $regex: new RegExp('^${gmina}$', 'i') };
+    filter.gmina = { $regex: new RegExp(`^${gmina}$`, 'i') };
   }
   if (miejscowosc) {
-    filter.miejscowosc = { $regex: new RegExp('^${miejscowosc}$', 'i') };
+    filter.miejscowosc = { $regex: new RegExp(`^${miejscowosc}$`, 'i') };
   }
   return filter;
 };
@@ -33,7 +33,6 @@ router.get('/entries', async (req, res) => {
   try {
     const { gmina, miejscowosc } = req.query;
     const filter = buildFilter(gmina, miejscowosc);
-
     const entries = await WeatherData.find(filter).sort({ dataDodania: -1 });
     res.json(entries);
   } catch (err) {
@@ -46,7 +45,7 @@ router.get('/gmina/:gmina', async (req, res) => {
   try {
     const { gmina } = req.params;
     const entries = await WeatherData.find({
-      gmina: { $regex: new RegExp('^${gmina}$', 'i') }
+      gmina: { $regex: new RegExp(`^${gmina}$`, 'i') }
     }).sort({ dataDodania: -1 });
     res.json(entries);
   } catch (err) {
@@ -57,9 +56,8 @@ router.get('/gmina/:gmina', async (req, res) => {
 // Pobranie wpisów dla konkretnej miejscowości (case-insensitive)
 router.get('/miejscowosc/:miejscowosc', async (req, res) => {
   const { miejscowosc } = req.params;
-
   try {
-    const regex = new RegExp('^${miejscowosc}$', 'i');
+    const regex = new RegExp(`^${miejscowosc}$`, 'i');
     const entries = await WeatherData.find({ miejscowosc: { $regex: regex } }).sort({ dataDodania: -1 });
     res.json(entries);
   } catch (err) {
@@ -67,15 +65,13 @@ router.get('/miejscowosc/:miejscowosc', async (req, res) => {
   }
 });
 
-
 // 🔑 Klucz API do Google Geocoding
 const GEOCODING_API_KEY = 'AIzaSyCF3odqgnIR29w-dJrbAJbs4GqM4JjAFyo';
 
 // 📌 Pomocnicza funkcja do geokodowania
 async function geocodeAddress(miejscowosc, gmina) {
-  const address = ${miejscowosc}, ${gmina}, Polska;
-  const url = https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GEOCODING_API_KEY};
-
+  const address = `${miejscowosc}, ${gmina}, Polska`;
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GEOCODING_API_KEY}`;
   try {
     const res = await axios.get(url);
     const location = res.data.results[0]?.geometry.location;
@@ -90,17 +86,17 @@ async function geocodeAddress(miejscowosc, gmina) {
 router.get('/mapa/poGminie/:gmina', async (req, res) => {
   try {
     const { gmina } = req.params;
-    const godzinaTemu = new Date(Date.now() - 6 * 60 * 60 * 1000); // ostatnie 6h
+    const godzinaTemu = new Date(Date.now() - 6 * 60 * 60 * 1000);
 
     const entries = await WeatherData.find({
-      gmina: { $regex: new RegExp('^${gmina}$', 'i') },
+      gmina: { $regex: new RegExp(`^${gmina}$`, 'i') },
       dataDodania: { $gte: godzinaTemu }
     });
 
     const grouped = {};
 
     for (const entry of entries) {
-      const key = ${entry.miejscowosc.toLowerCase()}|${entry.gmina.toLowerCase()};
+      const key = `${entry.miejscowosc.toLowerCase()}|${entry.gmina.toLowerCase()}`;
       if (!grouped[key]) {
         grouped[key] = {
           miejscowosc: entry.miejscowosc,
@@ -140,8 +136,8 @@ router.get('/mapa/poMiejscowosci/:gmina/:miejscowosc', async (req, res) => {
     const godzinaTemu = new Date(Date.now() - 6 * 60 * 60 * 1000);
 
     const entries = await WeatherData.find({
-      gmina: { $regex: new RegExp('^${gmina}$', 'i') },
-      miejscowosc: { $regex: new RegExp('^${miejscowosc}$', 'i') },
+      gmina: { $regex: new RegExp(`^${gmina}$`, 'i') },
+      miejscowosc: { $regex: new RegExp(`^${miejscowosc}$`, 'i') },
       dataDodania: { $gte: godzinaTemu }
     });
 
@@ -160,7 +156,7 @@ router.get('/mapa/poMiejscowosci/:gmina/:miejscowosc', async (req, res) => {
   }
 });
 
-// Średnie ogólne lub z ostatniej godziny (filtrowanie case-insensitive)
+// 📊 Endpoint: Średnie dane pogodowe
 router.get('/average', async (req, res) => {
   try {
     const { gmina, miejscowosc, ostatniaGodzina } = req.query;
