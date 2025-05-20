@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const GEOCODING_API_KEY = 'AIzaSyCF3odqgnIR29w-dJrbAJbs4GqM4JjAFyo'; // Upewnij się, że ten klucz ma włączone Geocoding API
+const GEOCODING_API_KEY = 'AIzaSyCoeVoganTIMSrWTvXH5CaRCnST7jXALp8'; // Upewnij się, że ten klucz ma włączone Geocoding API
 
 /**
  * Geokodowanie adresu z uwzględnieniem przypadków takich jak identyczna miejscowość i gmina.
