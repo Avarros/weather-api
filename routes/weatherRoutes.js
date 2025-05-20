@@ -8,10 +8,10 @@ const router = express.Router();
 const buildFilter = (gmina, miejscowosc) => {
   const filter = {};
   if (gmina) {
-    filter.gmina = { $regex: new RegExp(^${gmina}$, 'i') };
+    filter.gmina = { $regex: new RegExp('^${gmina}$', 'i') };
   }
   if (miejscowosc) {
-    filter.miejscowosc = { $regex: new RegExp(^${miejscowosc}$, 'i') };
+    filter.miejscowosc = { $regex: new RegExp('^${miejscowosc}$', 'i') };
   }
   return filter;
 };
@@ -46,7 +46,7 @@ router.get('/gmina/:gmina', async (req, res) => {
   try {
     const { gmina } = req.params;
     const entries = await WeatherData.find({
-      gmina: { $regex: new RegExp(^${gmina}$, 'i') }
+      gmina: { $regex: new RegExp('^${gmina}$', 'i') }
     }).sort({ dataDodania: -1 });
     res.json(entries);
   } catch (err) {
@@ -59,7 +59,7 @@ router.get('/miejscowosc/:miejscowosc', async (req, res) => {
   const { miejscowosc } = req.params;
 
   try {
-    const regex = new RegExp(^${miejscowosc}$, 'i');
+    const regex = new RegExp('^${miejscowosc}$', 'i');
     const entries = await WeatherData.find({ miejscowosc: { $regex: regex } }).sort({ dataDodania: -1 });
     res.json(entries);
   } catch (err) {
@@ -93,7 +93,7 @@ router.get('/mapa/poGminie/:gmina', async (req, res) => {
     const godzinaTemu = new Date(Date.now() - 6 * 60 * 60 * 1000); // ostatnie 6h
 
     const entries = await WeatherData.find({
-      gmina: { $regex: new RegExp(^${gmina}$, 'i') },
+      gmina: { $regex: new RegExp('^${gmina}$', 'i') },
       dataDodania: { $gte: godzinaTemu }
     });
 
