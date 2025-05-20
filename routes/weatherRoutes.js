@@ -20,47 +20,42 @@ const buildFilter = (gmina, miejscowosc) => {
 // Dodanie nowego wpisu
 router.post('/', async (req, res) => {
   try {
-    const {
-      nazwaUzytkownika,
-      gmina,
-      miejscowosc,
-      temperatura,
-      wilgotnosc,
-      cisnienieAtmosferyczne,
-      czyPada,
-      silaWiatru,
-      silaOpadow
-    } = req.body;
+    console.log('REQ.BODY:', req.body);
 
-    // Sprawdzenie wymaganych pól
+    const { gmina, miejscowosc } = req.body;
+
     if (!gmina && !miejscowosc) {
-      return res.status(400).json({ error: 'Wymagana jest gmina lub miejscowość' });
+      return res.status(400).json({ error: 'Podaj co najmniej gminę lub miejscowość.' });
     }
 
     const coords = await geocodeAddress(miejscowosc, gmina);
     if (!coords) {
-      return res.status(400).json({ error: 'Nie udało się pobrać współrzędnych lokalizacji.' });
+      return res.status(400).json({ error: 'Nie można uzyskać współrzędnych dla podanego adresu.' });
     }
 
-    const newEntry = new WeatherData({
-      nazwaUzytkownika,
-      gmina,
-      miejscowosc,
-      temperatura,
-      wilgotnosc,
-      cisnienieAtmosferyczne,
-      czyPada,
-      silaWiatru,
-      silaOpadow,
+    const data = new WeatherData({
+      ...req.body,
       latitude: coords.lat,
       longitude: coords.lng
     });
 
-    await newEntry.save();
-    res.status(201).json(newEntry);
+    await data.save();
+    res.status(201).json(data);
   } catch (err) {
-    console.error('❌ Błąd podczas dodawania wpisu:', err.message);
+    console.error('❌ Błąd podczas zapisu wpisu:', err.message);
     res.status(400).json({ error: err.message });
+  }
+});
+
+// Lista wpisów użytkowników (filtrowanie po gminie i miejscowości, case-insensitive)
+router.get('/entries', async (req, res) => {
+  try {
+    const { gmina, miejscowosc } = req.query;
+    const filter = buildFilter(gmina, miejscowosc);
+    const entries = await WeatherData.find(filter).sort({ dataDodania: -1 });
+    res.json(entries);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
