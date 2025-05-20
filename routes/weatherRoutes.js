@@ -72,7 +72,7 @@ router.get('/mapa/poGminie/:gmina', async (req, res) => {
     const gmina = decodeURIComponent(req.params.gmina);
     const since = new Date(Date.now() - 6 * 60 * 60 * 1000); // ostatnie 6h
     const entries = await WeatherData.find({
-      gmina,
+      gmina: { $regex: new RegExp(`^${gmina}$`, 'i') },
       dataDodania: { $gte: since }
     }).lean();
 
@@ -103,7 +103,7 @@ router.get('/mapa/poMiejscowosci/:gmina/:miejscowosc', async (req, res) => {
     const miejscowosc = decodeURIComponent(req.params.miejscowosc);
     const since = new Date(Date.now() - 6 * 60 * 60 * 1000); // ostatnie 6h
     const entries = await WeatherData.find({
-      gmina,
+      gmina: { $regex: new RegExp(`^${gmina}$`, 'i') },
       miejscowość: miejscowosc,
       dataDodania: { $gte: since }
     }).lean();
