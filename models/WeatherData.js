@@ -10,7 +10,9 @@ const WeatherDataSchema = new mongoose.Schema({
   cisnienieAtmosferyczne: Number,
   czyPada: Boolean,
   silaWiatru: Number,
-  silaOpadow: Number
+  silaOpadow: Number,
+  latitude: Number,   
+  longitude: Number    
 });
 
 const WeatherData = mongoose.model('WeatherData', WeatherDataSchema);

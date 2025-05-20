@@ -21,10 +21,28 @@ const buildFilter = (gmina, miejscowosc) => {
 router.post('/', async (req, res) => {
   try {
     console.log('REQ.BODY:', req.body);
-    const data = new WeatherData(req.body);
+
+    const { gmina, miejscowosc } = req.body;
+
+    if (!gmina && !miejscowosc) {
+      return res.status(400).json({ error: 'Podaj co najmniej gminę lub miejscowość.' });
+    }
+
+    const coords = await geocodeAddress(miejscowosc, gmina);
+    if (!coords) {
+      return res.status(400).json({ error: 'Nie można uzyskać współrzędnych dla podanego adresu.' });
+    }
+
+    const data = new WeatherData({
+      ...req.body,
+      latitude: coords.lat,
+      longitude: coords.lng
+    });
+
     await data.save();
     res.status(201).json(data);
   } catch (err) {
+    console.error('❌ Błąd podczas zapisu wpisu:', err.message);
     res.status(400).json({ error: err.message });
   }
 });
